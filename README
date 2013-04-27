@@ -1,0 +1,61 @@
+AHK Menu Object Model
+
+MENU Reference
+
+I. Objects/Interfaces
+	MENU[class]       - Class object
+	MENU              - Represents a menu.
+	MENU._menuitems_  - Represents the menu items in the menu.
+	MENU._item_       - Represents a single menu item. MENU._item_ is the base interface for accessing a menu item's properties and methods.
+
+II. Properties
+	name              - Returns the name of the menu or the menu item.
+	                  - Appies to MENU (Read-only) , MENU._item_ (Read/write)
+    handle            - Returns the handle/hMenu of the menu.
+                      - Applies to MENU (Read-only)
+    count             - Returns the number of items in the menu.
+                      - Applies to MENU (Read-only)
+    default           - If the target object is a MENU object, this property contains the MENU._item_ object representing the default(if any) menu item.
+                        If the target object is of the MENU._item_ type, this property returns True(1) if the item is currently the default item, otherwise, False(0).
+                      - Appies to MENU (Read/write) , MENU._item_ (Read/write)
+    icon              - Gets or sets the menu item's icon (file) and icon number(if any).
+                      - Applies to MENU._item_ (Read/write)
+    target            - Gets or sets the menu item's target label or function.
+                      - Applies to MENU._item_ (Read/write)
+    check             - Gets or sets the menu item's "check state".
+                      - Applies to MENU._item_ (Read/write)
+    enable            - Gets or sets the menu item's "enable state".
+                      - Applies to MENU._item_ (Read/write)
+    pos               - Returns the menu item's index/position in the menu.
+                      - Applies to MENU._item_ (Read/write)
+    type              - Returns the menu item's type [Normal , Submenu , Separator].
+                      - Applies to MENU._item_ (Read-only)
+    id                - Returns the menu item identifier of the menu item.
+                      - Applies to MENU._item_ (Read-only)
+    menu              - Represents the menu from which the menu item belongs to. 
+                      - Applies to MENU._item_ (Read-only)
+    isMenu            - returns True(1) if the menu exists, otherwise, False(0).
+                      - Applies to MENU (Read-only)
+    item              - Represents the MENU._menuitems_ object containg a list of all menu items for this menu.
+                      - Applies to MENU (Read-only)
+    *ItemPosOrName    - Represents the menu item with the specified name or index/pos.
+                      - Applies to MENU._menuitems_ (Read-only)
+    thisItem          - Represents the most recently selected menu item.
+                      - When accessing this property, target object must be the class object not a derived object from the class.
+                      - Applies to MENU[class] (Read-only)
+    thisMenu          - Represents the menu from which the most recently selected menu item belongs to.
+                      - When accessing this property, target object must be the class object not a derived object from the class.
+                      - Applies to MENU[class] (Read-only)
+
+III. Methods (see Method Details below for args details, examples, etc.)
+	add               - Appends a new item to the end of the menu.
+	                  - Applies to MENU
+	insert            - Inserts a new menu item at the specified position in a menu. If position is not specified, the item is appended to the end of the menu.
+	                  - Applies to MENU
+	delete            - Deletes a menu item. If no item is specified, all menu items will be removed.
+	                  - Applies to MENU
+	show              - Displays the menu.
+	                  - Applies to MENU
+	setIcon           - Sets the menu item's icon.
+	                  - Applies to MENU , MENU._item_
+
