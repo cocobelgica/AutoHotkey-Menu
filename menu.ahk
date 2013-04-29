@@ -796,22 +796,21 @@ MENU_to(p*) {
 
 MENU_json(src) {
 	static sc
-	, e := ["Menu","name","items","target","icon","standard","default","color","check","enable"]
+	, e := "(?P<p>menu|name|items|target|icon|standard|default|color|check|enable)"
 
 	if !sc {
 		sc := ComObjCreate("ScriptControl")
 		sc.Language := "JScript"
 	}
-
-	for a, b in e
-		src := RegExReplace(src, "i)(""|'|)\K" b "(?=(""|'|):)", b)
+	; Convert all JSON elements to lowercase
+	src := RegExReplace(src, "i)(""|'|)\K" e "(?=(""|'|):)", "$L{p}")
 	
 	sc.ExecuteStatement("j = " src)
 	j := sc.Eval("j")
 
 	m := [] , mn := []
-	Loop, % (len := j.Menu.length) {
-		_m_ := (j.Menu)[A_Index-1] , mp := []
+	Loop, % (len := j.menu.length) {
+		_m_ := (j.menu)[A_Index-1] , mp := []
 		for q, r in ["name","color","standard"]
 			if _m_.hasOwnProperty(r)
 				mp[r] := _m_[r]
