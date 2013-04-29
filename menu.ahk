@@ -795,7 +795,7 @@ MENU_to(p*) {
 }
 
 MENU_json(src) {
-	static sc
+	static sc , has := "hasOwnProperty"
 	, e := "(?P<p>menu|name|items|target|icon|standard|default|color|check|enable)"
 
 	if !sc {
@@ -809,10 +809,10 @@ MENU_json(src) {
 	j := sc.Eval("j")
 
 	m := [] , mn := []
-	Loop, % (len := j.menu.length) {
-		_m_ := (j.menu)[A_Index-1] , mp := []
+	Loop, % (len := ($j := j[has]("name")) ? 1 : j.length) {
+		_m_ := ($j ? j : j[A_Index-1]) , mp := []
 		for q, r in ["name","color","standard"]
-			if _m_.hasOwnProperty(r)
+			if _m_[has](r)
 				mp[r] := _m_[r]
 		mn[mp.name] := _m_
 		m[mp.name] := new menu(mp)
@@ -821,10 +821,10 @@ MENU_json(src) {
 	for k, v in m {		
 		Loop, % mn[k].items.length {
 			_mi_ := (mn[k].items)[A_Index-1]
-			mi := _mi_.hasOwnProperty("name") ? [] : ""
-			for i, j in (mi ? ["name","target","icon","default","check","enable"] : [])
-				if _mi_.hasOwnProperty(j)
-					mi[j] := _mi_[j]
+			mi := _mi_[has]("name") ? [] : ""
+			for x, y in (mi ? ["name","target","icon","default","check","enable"] : [])
+				if _mi_[has](y)
+					mi[y] := _mi_[y]
 			v.add(mi)
 		}
 	}
