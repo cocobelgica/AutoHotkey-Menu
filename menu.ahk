@@ -796,7 +796,7 @@ MENU_to(p*) {
 
 MENU_json(src) {
 	static sc
-	, e := ["Menu","name","items","target","icon","standard","default","color"]
+	, e := ["Menu","name","items","target","icon","standard","default","color","check","enable"]
 
 	if !sc {
 		sc := ComObjCreate("ScriptControl")
@@ -823,7 +823,7 @@ MENU_json(src) {
 		Loop, % mn[k].items.length {
 			_mi_ := (mn[k].items)[A_Index-1]
 			mi := _mi_.hasOwnProperty("name") ? [] : ""
-			for i, j in (mi ? ["name","target","icon","default"] : [])
+			for i, j in (mi ? ["name","target","icon","default","check","enable"] : [])
 				if _mi_.hasOwnProperty(j)
 					mi[j] := _mi_[j]
 			v.add(mi)
