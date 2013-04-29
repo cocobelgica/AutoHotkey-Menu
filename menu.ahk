@@ -16,12 +16,20 @@ class menu
 		}
 	}
 	
-	__New(name) {
+	__New(arg) {
 		ObjInsert(this, "_", []) ; proxy object
+		
+		if !(name := IsObject(arg) ? (arg.HasKey("name") ? arg.name : 0) : arg)
+			throw Exception("Menu name not specified.", -1)
 		try (this.name := name)
 		catch e
 			throw Exception(e.Message, -1)
-		this[this.name] := true
+		
+		for k, v in arg {
+			if !(k ~= "i)^(standard|color|icon)$")
+				continue
+			this[k] := v
+		}
 	}
 
 	__Delete() {
@@ -38,6 +46,12 @@ class menu
 		__(key, value) {
 			if (key == this.name)
 				return MENU_list([key, value ? this : false]*)
+
+			if (key ~= "i)^(file|number|tip|click)$") {
+				if (this.__Class <> "_trayicon_")
+					throw Exception("Invalid target object!", -2)
+				return this.icon[key] := value
+			}
 			
 			return this._[key] := value
 		}
@@ -45,12 +59,18 @@ class menu
 		name(value) {
 			if this._.HasKey("name")
 				throw Exception("The 'name' property is read-only.", -1)
-			if this.handle[value]
+			if (this.handle[value] && value <> "Tray")
 				throw Exception("Menu name already exists.", -1)
-			for i, j in ["Standard", "NoStandard"]
-				Menu, % value, % j
 			
-			return this._["name"] := value
+			this._.Insert("name", value)
+			this[value] := true
+			this.item := new menu._menuitems_(this)	
+			for i, j in ["Standard", "NoStandard"]
+				if (tray := (value = "Tray"))
+					this.standard := i-1
+				else Menu, % value, % j
+			
+			return true
 		}
 
 		default(value) {
@@ -70,11 +90,11 @@ class menu
 		          ,   "@": (value ? this.count+1 : 0)}
 		    
 		    p := (s := value["$"]) ? this.count : this.standard
-		    Menu, % this.name, % cmd    
+		    Menu, % this.name, % cmd
 		    Loop, 10
-		    	(this.item)[s ? p+A_Index : p] := s
-		    	                               ? new menu._item_(this, {name: []})
-		    	                               : ""
+		    	this.item[s ? p+A_Index : p] := s
+		    	                             ? new menu._item_(this, {name: []})
+		    	                             : ""
 		    
 		    return this._["standard"] := value
 		}
@@ -96,17 +116,59 @@ class menu
 			}
 			return this._["color"] := {value: v, single: s}
 		}
+
+		item(p*) {
+			if !IsObject(p.1)
+				return (this.item)[p.1] := p.2
+			else return this._["item"] := p.1
+		}
+
+		icon(p*) {
+			if (this.name <> "Tray")
+				throw Exception("Menu name must be 'Tray'.", -2)
+
+			if p.2 {
+				if (p.1 ~= "i)^(tip|click)$")
+					Menu, % this.name, % p.1, % p.2
+				if (p.1 ~= "i)^(file|number)$") {
+					x := {file: [p.2, this.icon.number], number: [this.icon.file, p.2]}[p.1]
+					Menu, % this.name, Icon, % x.1, % x.2
+				}
+			
+			} else {
+				if (p.1 ~= "^[0-2]$") {
+					Menu, % this.name
+					    , % {0: "NoIcon"
+					       , 1: "Icon"
+					       , 2: {0: "NoIcon", 1: "Icon"}[A_IconHidden]}[p.1]				
+				} else {
+					if RegExMatch(p.1, "O)^(.*),(\d+)$", icon)
+						Menu, % this.name, Icon, % icon.1, % icon.2
+					else Menu, % this.name, Icon, % p.1
+				}
+			}		
+			return true
+		}
 	
 	}
 
-	__Set(key, value) {
+	__Set(key, value, p*) {
+		
 		if (key = "name") {
 			if this._.HasKey(key)
 				throw Exception("The 'name' property is read-only.", -1)
-			if this.handle[value]
+			if (this.handle[value] && value <> "Tray")
 				throw Exception("Menu name already exists.", -1)
-			for i, j in ["Standard", "NoStandard"] ; create empty Menu
-				Menu, % value, % j
+			
+			this._.Insert(key, value)
+			this[value] := true
+			this.item := new menu._menuitems_(this)
+			for i, j in ["Standard", "NoStandard"]
+				if (value = "Tray")
+					this.standard := i-1
+				else Menu, % value, % j
+
+			return true
 		}
 		
 		if (key == this.name)
@@ -122,16 +184,16 @@ class menu
 			cmd := {0: "NoStandard"
 			    ,   1: "Standard"
 			    ,   2: ({0: "Standard", 1: "NoStandard"}[std])}[value]
-
+			
 		    value := {"$": (value ? {0: true, 1: false}[std] : false)
 		          ,   "@": (value ? this.count+1 : 0)}
 		    
-		    p := (s := value["$"]) ? this.count : this.standard ; this.standard["@"]
-		    Menu, % this.name, % cmd    
-		    Loop, 10
-		    	(this.item)[s ? p+A_Index : p] := s
-		    	                               ? new menu._item_(this, {name: []})
-		    	                               : ""    	
+		    p := (s := value["$"]) ? this.count : this.standard
+		    Menu, % this.name, % cmd
+		    Loop, % (s ? (std ? 0 : 10) : (std ? 10 : 0))
+		    	this.item[s ? p+A_Index : p] := s
+		    	                             ? new menu._item_(this, {name: []})
+		    	                             : ""
 		}
 
 		if (key = "color") {
@@ -150,6 +212,50 @@ class menu
 			}
 			value := {value: v, single: s}
 		}
+
+		if (key = "item") {
+			if p.1
+				return (this.item)[value] := p.1
+		}
+		; TRAY Menu only
+		if (key ~= "i)^(icon|file|number|tip|click)$") {
+			if (this.name <> "Tray")
+				throw Exception("Menu name must be 'Tray'.", -1)
+			
+			if (key <> "icon") {
+				if (this.__Class <> "_trayicon_")
+					throw Exception("Invalid target object!", -1)
+				return this.icon[key] := value
+			}
+
+			if p.1 {
+				if (value ~= "i)^(tip|click)$")
+					Menu, % this.name, % value, % p.1
+				if (value ~= "i)^(file|number)$") {
+					x := {file: [p.1, this.icon.number], number: [this.icon.file, p.1]}[value]
+					Menu, % this.name, Icon, % x.1, % x.2
+				}
+			
+			} else {
+				if IsObject(value) {
+					for k, v in value
+						if (k ~= "i)^(file|number|tip|click)$")
+							this.icon[k] := v
+				} else if (value ~= "^[0-2]$") {
+					Menu, % this.name
+					    , % {0: "NoIcon"
+					       , 1: "Icon"
+					       , 2: {0: "NoIcon", 1: "Icon"}[A_IconHidden]}[value]
+				} else if RegExMatch(value, "Oi)^([^\,]+|)(?:,|$)(\d+|)(?:,|$)(1|2|)(?:,|$)(.*)$", m) {
+					for k, v in ["file", "number", "click", "tip"] {
+						if (m[k] == "")
+							continue
+						this.icon[v] := m[k]
+					}
+				}
+			}
+			return true
+		}
 		
 		return this._[key] := value
 	}
@@ -157,12 +263,18 @@ class menu
 	class __Get extends menu._properties_
 	{
 
-		__(key, params*) {			
+		__(key, params*) {
 			if ObjHasKey(this._, key)
 				return this._[key, params*]
 
 			if (key ~= "i)^(hMenu|hwnd)$")
 				return this.handle[params*]
+
+			if (key ~= "i)^(file|number|tip)$") {
+				if (this.__Class <> "_trayicon_")
+					throw Exception("Invalid target object!", -2)
+				return this.icon[key]
+			}
 
 			return false
 		}
@@ -172,25 +284,26 @@ class menu
 		}
 
 		handle(p*) {
+			static mDummy := "MENU_dummy_" A_TickCount
 			static hDummy
 
 			if !hDummy {
-				Menu, mDummy, Add
-				Menu, mDummy, DeleteAll
+				Menu, % mDummy, Add
+				Menu, % mDummy, DeleteAll
 				Gui, New, +LastFound
-				Gui, Menu, mDummy
+				Gui, Menu, % mDummy
 				hDummy := DllCall("GetMenu", "Ptr", WinExist())
 				Gui, Menu
 				Gui, Destroy
 				if !hDummy
 					return false
 			}
-			try Menu, mDummy, Add, % ":" (mn := p.1 ? p.1 : this.name)
+			try Menu, % mDummy, Add, % ":" (mn := p.1 ? p.1 : this.name)
 			catch
 				return false
 			hMenu := DllCall("GetSubMenu", "Ptr", hDummy, "Int", 0)
 			DllCall("RemoveMenu", "Ptr", hDummy, "UInt", 0, "UInt", 0x400)
-			Menu, mDummy, Delete, % ":" mn
+			Menu, % mDummy, Delete, % ":" mn
 			return hMenu
 		}
 
@@ -209,11 +322,34 @@ class menu
 
 		default(p*) {
 			idx := DllCall("GetMenuDefaultItem"
-				         , "Ptr", this.hwnd
-				         , "UInt", true
-				         , "UInt", 0x0001L) ; GMDI_USEDISABLED
+			             , "Ptr", this.hwnd
+			             , "UInt", true
+			             , "UInt", 0x0001L) ; GMDI_USEDISABLED
 			
 			return (idx >= 0) ? (this.item)[idx+1] : false
+		}
+		; TRAY Menu only
+		icon(p*) {
+			static _base_ := {__Set: menu.__Set, __Get: menu.__Get, __Class: "_trayicon_"}
+			
+			if (this.name <> "Tray")
+				throw Exception("Menu name must be 'Tray'.", -2)
+			
+			if p.1 {			
+				if (p.1 ~= "i)^(tip|number)$")
+					return {tip: (A_IconTip ? A_IconTip : A_ScriptName)
+					      , number: (A_IconNumber ? A_IconNumber : 1)}[p.1]
+				if (p.1 = "file") {
+					file := A_IconFile ? A_IconFile : false
+					if file
+						SplitPath, file, name
+					return file ? (FileExist(file) ? file : name) : A_AhkPath
+				}
+			
+			} else {
+				obj := {base: _base_} , obj.Insert("_", {name: this.name})
+				return obj
+			}
 		}
 	
 	}
@@ -222,17 +358,17 @@ class menu
 		if !IsObject(this.item)
 			this.item := new menu._menuitems_(this)
 		mi := new menu._item_(this, item)
-		(this.item)[this.count] := mi
+		this.item[this.count] := mi
 	}
 
 	insert(p1:=0, p2:=0) {
 		this.add((mi := IsObject(p1)) ? p1 : "")
-		(this.item)[this.count].pos := mi ? p2 : p1
+		this.item[this.count].pos := mi ? p2 : p1
 	}
 
 	delete(item:="") {
 		if item
-			(this.item)[item] := ""
+			this.item[item] := ""
 		else (this.item := "")
 	}
 
@@ -254,7 +390,7 @@ class menu
 				this.Insert(b, (a <= 2 ? [] : self.name))
 		}
 
-		__Set(key, value) {
+		__Set(key, value, p*) {
 			if (key ~= "^\d+$") {			
 				if (IsObject(value) && value.__Class = "menu._item_") {
 					if (value.type ~= "i)^(Normal|Submenu)$")
@@ -297,7 +433,7 @@ class menu
 
 				return (m ~= "i)[A-Z]+")
 				       ? (this[k])[m](p*)
-				       : (m ? this[k][p*] : ((this[k])[p.1] := p.2))
+				       : (m ? this[k][p*] : (this[k][p.1] := p.2))
 			}
 
 			if (method = "menu")
@@ -598,18 +734,16 @@ MENU_from(src) {
 	else throw Exception("Invalid XML source.", -1)
 
 	m := [] , mn := []
-	root := x.documentElement
-	_m_ := root.selectNodes(xpr.1)
-
-	if !(len := _m_.length) {
-		n := root.selectSingleNode(xpr.3)
-		mn[n.value] := root
-		m[n.value] := new menu(n.value)
-	} else Loop, % len {
-		node := _m_.item(A_Index-1)
-		n := node.selectSingleNode(xpr.3)
-		mn[n.value] := node
-		m[n.value] := new menu(n.value)
+	_m_ := x.selectNodes("//" xpr.1 "[" xpr.3 "]")
+	
+	; Create menu(s)
+	Loop, % (len := _m_.length) {
+		node := _m_.item(A_Index-1) , $mp := []
+		Loop, % (_mp_ := node.attributes).length
+			mp := _mp_.item(A_Index-1)
+			, $mp[mp.name] := mp.value
+		mn[$mp.name] := node
+		m[$mp.name] := new menu($mp)
 	}
 	
 	; Add item(s)
@@ -628,8 +762,8 @@ MENU_from(src) {
 			}		
 			v.add(item)
 		}
-	}	
-	return len ? m : m[n.value]
+	}
+	return len > 1 ? m : m[$mp.name]
 }
 
 MENU_to(p*) {
@@ -660,6 +794,43 @@ MENU_to(p*) {
 	return x
 }
 
+MENU_json(src) {
+	static sc
+	, e := ["Menu","name","items","target","icon","standard","default","color"]
+
+	if !sc {
+		sc := ComObjCreate("ScriptControl")
+		sc.Language := "JScript"
+	}
+
+	for a, b in e
+		src := RegExReplace(src, "i)(""|'|)\K" b "(?=(""|'|):)", b)
+	
+	sc.ExecuteStatement("j = " src)
+	j := sc.Eval("j")
+
+	m := [] , mn := []
+	Loop, % (len := j.Menu.length) {
+		_m_ := (j.Menu)[A_Index-1] , mp := []
+		for q, r in ["name","color","standard"]
+			if _m_.hasOwnProperty(r)
+				mp[r] := _m_[r]
+		mn[mp.name] := _m_
+		m[mp.name] := new menu(mp)
+	}
+
+	for k, v in m {		
+		Loop, % mn[k].items.length {
+			_mi_ := (mn[k].items)[A_Index-1]
+			mi := _mi_.hasOwnProperty("name") ? [] : ""
+			for i, j in (mi ? ["name","target","icon","default"] : [])
+				if _mi_.hasOwnProperty(j)
+					mi[j] := _mi_[j]
+			v.add(mi)
+		}
+	}
+	return len > 1 ? m : m[mp.name]
+}
 ; PRIVATE FUNCTIONS
 MENU_init() {
 	static init
