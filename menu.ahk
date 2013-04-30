@@ -818,7 +818,7 @@ MENU_json(src) {
 		m[mp.name] := new menu(mp)
 	}
 
-	for k, v in m {		
+	for k, v in m {
 		Loop, % mn[k].items.length {
 			_mi_ := (mn[k].items)[A_Index-1]
 			mi := _mi_[has]("name") ? [] : ""
