@@ -8,7 +8,7 @@ MENU._item_         - Represents a single menu item. MENU._item_ is the base
                       interface for accessing a menu item's properties and methods.
 MENU._trayicon_     - Represents the Tray menu icon.
 
-II. Properties
+II. PROPERTIES
 ================================================================================
 name                - Returns the name of the menu or the menu item.
                       If the target object is a menu item object, setting this
@@ -291,4 +291,89 @@ if (menuObj.name == "MyMenu") {
 	; some code for "AnotherMenu"
 }
 return
+================================================================================
+
+
+III. METHODS
+================================================================================
+add                 - Appends a new item to the end of the menu.
+                      ** Applies to MENU
+
+Parameter(s):
+item(optional)      - Pass an object/array containing the properties of the item
+                      to be appended. Object key(s) must be the name of the
+                      properties and should contain the appropriate value.
+                      The 'name' property should be present when appending a normal
+                      menu item. To append a separator, omit this parameter.
+                      Valid properties: (see Properties for details)
+                      name    - String containing the name of the item to be appended
+                                This property is required.
+                      target  - The target label, function or submenu. If omiited,
+                                'name' is used.
+                      icon    - The icon to assign to the menu item
+                      check   - Specifies wheteher to check or uncheck the item
+                      enable  - Specifies wheteher to enable or disbale the item
+                      default - Specifies wheteher to set the item as the default or not.
+
+Example(s):
+menuObj.add({name: "Item one", target: "MyLabel", icon: "Shell32.dll,25"})
+================================================================================
+insert              - Inserts a new menu item at the specified position in a menu.
+                      ** Applies to MENU
+
+Parameter(s):
+item(optional)      - See 'item' parameter description for the 'add' method.
+pos(optional)       - The position in which to insert the new menu item.
+                      If position is not specified, the item is appended to the
+                      end of the menu.
+
+Remark(s):
+When inserting a separator, just pass the 'pos' parameter.
+
+Example(s):
+; Inserts a new menu item at position 2 in the menu
+menuObj.insert({name: "Item one", target: "MyLabel"}, 2)
+; Here we insert a separator at position 2
+menuObj.insert(2)
+; This is the same as appending a separator
+menuObj.insert()  ; Note: no passed parameter
+================================================================================
+delete              - Deletes/removes a menu item from the menu.
+                      ** Applies to MENU
+
+Parameter(s):
+item(optional)      - The position or name of the item to be deleted. If omitted,
+                      all menu items will be deleted. It does not destroy the menu.
+
+Example(s):
+menuObj.delete(3)           ; Removes the 3rd item from the menu
+menuObj.delete("Some item") ; Removes the item with the specified name
+menuObj.delete()            ; Removes all menu items from the menu, leaving the menu empty
+================================================================================
+show                - Displays the menu.
+                      ** Applies to MENU
+
+Parameter(s):
+x(optional)         - The 'x' position at which the menu is shown. If omitted,
+                      the current mouse cursor's 'x' position is used. This is
+                      affected the by 'CoordMode' setting.
+y(optional)         - The 'y' position at which the menu is shown. If omitted,
+                      the current mouse cursor's 'y' position is used. This is
+                      affected by the 'CoordMode' setting.
+coordmode(optional) - Specify any of the following value(s):
+                      Screen   - Coordinates are relative to the desktop
+                      Relative - Coordinates are relative to the active window
+                      Window   - Synonymous with Relative and recommended for clarity
+                      Client   - Coordinates are relative to the active window's
+                                 client area, which excludes the window's title bar,
+                                 menu (if it has a standard one) and borders.
+
+Remark(s):
+If no parameter is passed, the menu is displayed at the current position of the
+mouse cursor.
+
+Example(s):
+menuObj.show()                 ; Display menu at current mouse cursor position
+menuObj.show(10, 10)           ; By default, menu is displayed relative to the active window
+menuObj.show(10, 10, "Screen") ; Make it relative to the screen/desktop
 ================================================================================
