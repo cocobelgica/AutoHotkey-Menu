@@ -16,7 +16,7 @@ name                - Returns the name of the menu or the menu item.
                       ** Applies to MENU (Read-only) , MENU._item_ (Read/write)
 Example(s):
 MenuName := menuObj.name          ; retrieve the menu's name
-ItemName := itemObj.name          ; retireve the menu item's name
+ItemName := itemObj.name          ; retrieve the menu item's name
 itemObj.name := "New item name"   ; renames the menu item
 ================================================================================
 handle              - Returns the handle/hMenu of the menu.
@@ -27,7 +27,7 @@ hMenu := menuObj.handle           ; retrieve the menu's handle
 count               - Returns the number of items in the menu.
                       ** Applies to MENU (Read-only)
 Example(s):
-ItemCount := menuObj.count        ; retireve the number of items in the menu
+ItemCount := menuObj.count        ; retrieve the number of items in the menu
 ================================================================================
 default             - If the target object is a MENU object, this property
                       contains the MENU._item_ object representing the
@@ -42,8 +42,8 @@ default             - If the target object is a MENU object, this property
                       ** Applies to MENU (Read/write) , MENU._item_ (Read/write)
 Example(s):
 defaultItem := menuObj.default   ; Returns the default menu item (Object)
-isDefault := itemObj.default     ; Contains 1 if the item is the default item
-menuObj.default := itemObj       ; Sets "itemObj" as the default menu item
+isDefault := itemObj.default     ; Contains 1 if the 'itemObj' is the default item
+menuObj.default := itemObj       ; Sets 'itemObj' as the default menu item
 itemObj.default := 1             ; Same as above
 ================================================================================
 target              - Gets or sets the menu item's target label or function or submenu.
@@ -185,7 +185,7 @@ Example(s):
 ; instead of the word "single", you can also specify "1" or "true" or "0" or "false"
 menuObj.color := "White,single" ; Attached submenus retain their background colors.
 menuObj.color := "White,false"  ; Attached submenus change their background colors as well.
-menuObj.color := "White"        ; Same as above, "single" is omitted. Defaults to True(1)
+menuObj.color := "White"        ; Same as above, "single" is omitted. Defaults to False(0)
 
 ; Here we assign an object. There are two ways to do this.
 ; The value of "single" can be either of the ff: "1" or "true" or "single" or "0" or "false"
@@ -295,6 +295,40 @@ return
 
 
 III. METHODS
+================================================================================
+__New               - Constructor for the class. Use the 'new' keyword to create
+                      an instance of the class. Returns a MENU object that
+                      represents the newly created custom menu.
+
+Parameter(s):
+arg(required)       - Pass a string containing the name of the menu. Specify the
+                      word "Tray" to create an object instance that represents
+                      the Tray menu. By default (if 'name' is "Tray"), the
+                      'standard' property's value is set to True(1). You can
+                      bypass this by passing an object(see below) and setting the
+                      'standard' property's value to False(0).
+                      You can also specify an object/array containing the
+                      properties of the menu to be created. Object key(s) must
+                      be the name of the properties and should contain the
+                      appropriate value. The 'name' property should be present.
+                      Valid value(s): (see Properties for details)
+                      name      - String containing the name of the menu to be
+                                  created. This property is required.
+                      color     - The background color of the menu.
+                      standard  - Indicates whether the menu contains the standard
+                                  menu items or not.
+
+Remark(s):
+The menu's name must be unique.
+
+Example(s):
+; Create a menu named 'MyMenu'.
+menuObj := new menu("MyMenu")
+; Same as above but this one adds the standard menu items. An object is passed.
+menuObj := new menu({name: "MyMenu", standard: true})
+; Creates a menu object that represents the Tray menu. Setting 'standard' to
+; False(0) removes the standard menu items from the the Tray menu.
+trayObj := new menu({name: "Tray", standard: false})
 ================================================================================
 add                 - Appends a new item to the end of the menu.
                       ** Applies to MENU
