@@ -411,3 +411,159 @@ menuObj.show()                 ; Display menu at current mouse cursor position
 menuObj.show(10, 10)           ; By default, menu is displayed relative to the active window
 menuObj.show(10, 10, "Screen") ; Make it relative to the screen/desktop
 ================================================================================
+
+
+IV. ADDITIONAL FUNCTIONS
+================================================================================
+MENU_from           - Allows creation of menu(s) by passing an XML string.
+                      The return value depends on the structure of the XML. If
+                      the XML contains data that indicates multiple menus to be
+                      created, this function returns an object containing a list
+                      of menus. You can access each MENU object by specifying its
+                      name as key. Otherwise, if the data indicates a single menu
+                      to be created, the return value is a MENU object representing
+                      the menu. The purpose of this function is to enable rapid
+                      creation of menu(s) via markup and less coding.
+
+Parameter(s):
+src                 - An XML string containing data that describes the menu(s)
+                      to be created.
+
+Remark(s):
+The XML Structure: Below are some examples on how to compose the XML
+A. Multiple menus
+ --start of XML--
+<MENU_Class>
+	<Menu name="File">
+		<Item name="Open`tCtrl+O" target="MyLabel" icon="Shell32.dll,15"/>
+		<Item name="Save`tCtrl+S" target="MyLabel" default="1"/>
+		<Item name="Open submenu" target=":Edit"/>
+		<Item/>
+		<Item name="Close`tAlt+F4" target="MyLabel"/>
+	<Menu/>
+	<Menu name="Edit" color="White,single">
+		<Item name="Copy`tCtrl+C" target="MyLabel"/>
+		<Item name="Cut`tCtrl+X" target="MyLabel"/>
+		<Item name="Paste`tCtrl+V" target="MyLabel"/>
+		<Item/>
+		<Item name="Undo`tCtrl+Z" target="MyLabel"/>
+	<Menu/>
+<MENU_Class/>
+--end of XML--
+
+B. Single menu
+ --start of XML--
+<Menu name="Edit" color="White,single">
+	<Item name="Copy`tCtrl+C" target="MyLabel"/>
+	<Item name="Cut`tCtrl+X" target="MyLabel"/>
+	<Item name="Paste`tCtrl+V" target="MyLabel"/>
+	<Item/>
+	<Item name="Undo`tCtrl+Z" target="MyLabel"/>
+<Menu/>
+--end of XML--
+OR
+ --start of XML--
+<MENU_Class>
+	<Menu name="Edit" color="White,single">
+		<Item name="Copy`tCtrl+C" target="MyLabel"/>
+		<Item name="Cut`tCtrl+X" target="MyLabel"/>
+		<Item name="Paste`tCtrl+V" target="MyLabel"/>
+		<Item/>
+		<Item name="Undo`tCtrl+Z" target="MyLabel"/>
+	<Menu/>
+<MENU_Class/>
+--end of XML--
+
+The attribute(s) of the 'Menu' element should be valid MENU object properties.
+Same goes for the 'Item' element, should be valid MENU._item_ properties. To
+specify a separator, omit the 'Item' element's attributes. See 'Properties' above
+and see '__New' method.
+The name of the root node can be anything as long as it conforms with XML's syntax.
+
+Example(s):
+; Let's say that the 'src' variable contains an XML string indicating multiple
+; menus to be created.
+mList := MENU_from(src)
+return
+; mList contains a list of MENU objects, you can access a menu object by specifying
+; its name as key.
+^LButton:: mList.File.show() ; show the menu whose name is 'File'
+
+; Here the 'src' variable contains XML data that indicates a single menu to be created.
+myMenu := MENU_from(src)
+return
+; The function returned a MENU object, you can access its properties and methods.
+^LButton:: myMenu.show()
+================================================================================
+MENU_json           - This function acts the same as MENU_from. But instead of
+                      an XML string, a JSON string is passed.
+
+Parameter(s):
+src                 - A JSON string containing data describing the menu(s) to be
+                      created.
+
+Remark(s):
+The JSON Structure: Below are some examples on how to compose the JSON
+A. Multiple menus
+--start of JSON--
+[
+	{
+		'name': 'File',
+		'items': [
+			{'name': 'Open\tCtrl+O', 'target': 'Test', 'icon': 'Shell32.dll,15'},
+			{'name': 'Save\tCtrl+S', 'target': 'Test', 'default': 1},
+			{'name': 'Open submenu', 'target': ':Edit'},
+			{},
+			{'name': 'Exit\tAlt+F4', 'target': 'Test'}
+		]
+	},
+	{
+		'name': 'Edit',
+		'color': 'White',
+		'items': [
+			{'name': 'Copy\tCtrl+C', 'target': 'Test'},
+			{'name': 'Cut\tCtrl+X', 'target': 'Test'},
+			{'name': 'Paste\tCtrl+V', 'target': 'Test'},
+			{},
+			{'name': 'Undo\tCtrl+Z', 'target': 'Test'}
+		]
+	}
+]
+--end of JSON--
+
+B. Single menu
+--start of JSON--
+{
+	'name': 'Edit',
+	'color': 'White',
+	'items': [
+		{'name': 'Copy\tCtrl+C', 'target': 'Test'},
+		{'name': 'Cut\tCtrl+X', 'target': 'Test'},
+		{'name': 'Paste\tCtrl+V', 'target': 'Test'},
+		{},
+		{'name': 'Undo\tCtrl+Z', 'target': 'Test'}
+	]
+}
+--end of JSON--
+
+See MENU_from for example(s) on usage.
+================================================================================
+MENU_to             - Converts a MENU object or objects to an IXMLDOMDocument
+                      object. This function is useful if you want to save/store
+                      the menu(s) configuration in an XML file for later reuse.
+
+Parameter(s):
+mobj(variadic*)     - Specify a MENU object or objects derived from the class.
+                      Atleast one parameter is required.
+
+Remark(s):
+This function returns an IXMLDOMDocument object. For reference on its properties
+and methods, see: http://msdn.microsoft.com/en-us/library/ms764730(v=vs.85).aspx
+
+Example(s):
+xMenus := MENU_to(menuObj1, menuObj2)
+MsgBox, % xMenus.xml             ; Display the XML representation
+xMenus.save("MenuConfig.xml")    ; Save menus as XML in working directory.
+return
+================================================================================
+
