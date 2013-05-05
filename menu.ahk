@@ -102,7 +102,7 @@ class menu
 		}
 
 		if (key = "item") {
-			if p.1
+			if p.MinIndex()
 				return (this.item)[value] := p.1
 		}
 		; TRAY Menu only
