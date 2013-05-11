@@ -51,10 +51,11 @@ class menu
 			this._.Insert(key, value)
 			this[value] := true
 			this.item := new menu._menuitems_(this)
-			for i, j in ["Standard", "NoStandard"]
-				if (value = "Tray")
-					this.standard := i-1
-				else Menu, % value, % j
+			if (value = "Tray") {
+				Menu, % value, NoStandard
+				this.standard := true
+			} else for i, j in ["Standard", "NoStandard"]
+				Menu, % value, % j
 
 			return true
 		}
@@ -69,19 +70,19 @@ class menu
 
 		if (key = "standard") {
 			std := this.standard ? 1 : 0
-			cmd := {0: "NoStandard"
-			    ,   1: "Standard"
-			    ,   2: ({0: "Standard", 1: "NoStandard"}[std])}[value]
+			;cmd := {0: "NoStandard"
+			;    ,   1: "Standard"
+			;    ,   2: ({0: "Standard", 1: "NoStandard"}[std])}[value]
 			
 		    value := {"$": (value ? {0: true, 1: false}[std] : false)
 		          ,   "@": (value ? this.count+1 : 0)}
 		    
-		    p := (s := value["$"]) ? this.count : this.standard
-		    Menu, % this.name, % cmd
+		    p := (s := value["$"]) ? this.count : this.standard+10
 		    Loop, % (s ? (std ? 0 : 10) : (std ? 10 : 0))
-		    	this.item[s ? p+A_Index : p] := s
-		    	                             ? new menu._item_(this, {name: []})
-		    	                             : ""
+		    	idx := p+(s ? A_Index : -A_Index)
+		    	, this.item[idx] := s
+		    	                 ? new menu._item_(this, {name: {idx:A_Index}})
+		    	                 : ""
 		}
 
 		if (key = "color") {
@@ -279,7 +280,7 @@ class menu
 		}
 
 		__Set(key, value, p*) {
-			if (key ~= "^\d+$") {			
+			if (key ~= "^\d+$") {
 				if (IsObject(value) && value.__Class = "menu._item_") {
 					if (value.type ~= "i)^(Normal|Submenu)$")
 						this.ins([value.name, true], 2)
@@ -295,6 +296,7 @@ class menu
 				return this[this[key].pos] := value
 
 			return this.ins([key, value])
+			;return this.set([key, value])
 		}
 
 		class __Get extends menu._properties_
@@ -324,8 +326,15 @@ class menu
 				       : (m ? this[k][p*] : (this[k][p.1] := p.2))
 			}
 
-			if (method = "menu")
+			if (method = "max") {
+				for a in this.()
+					idx := A_Index
+				return idx ? idx : 0
+			}
+
+			if (method = "menu") {
 				return MENU_obj(this[this.__(3)])
+			}
 
 			if (method ~= "i)^(delete|move)$")
 				return this["$"](params*)
@@ -376,25 +385,29 @@ class menu
 
 		__New(self, item) {
 			this.Insert("_", {menu: self.name})
-			;ObjInsert(this, "_", {menu: self.name})
 			
-			if IsObject(item) {
-				this.name := item.name
-				if (!item.Haskey("target") && !IsObject(item.name))
-					item.target := ""
-				
-				for a, b in item
+			this.name := IsObject(item) ? item.name : ""
+			if (this.type = "Normal") {
+				item.target := item.Haskey("target") ? item.target : ""
+				for a, b in item {
+					if !(a ~= "i)^(target|icon|enable|check|default)$")
+						continue
 					this[a] := b
-				
-			} else Menu, % self.name, Add
+				}
+			}
 		}
 
 		__Delete() {
-
 			if this.menu.isMenu {
 				self := this.menu
-				if (this.type <> "Standard")
+				if (this.type ~= "i)^(Normal|Submenu)$")
+					Menu, % self.name, Delete, % this.name
+				else if (this.type = "Separator")
 					self.item.delete(this)
+				else if (this.type = "Standard") {
+					if (this._.name.idx == 1)
+						Menu, % self.name, NoStandard
+				}
 			}
 			;OutputDebug, % "Class: " this.__Class " released"
 		}
@@ -404,7 +417,7 @@ class menu
 
 			if (key = "name") {
 				if this._.HasKey(key) {
-					if (this.type = "Standard") ; <stditem>
+					if (this.type ~= "i)^(Standard|Separator)$") ; <stditem>
 						return false
 					if (this.name = value)
 						return false
@@ -412,10 +425,12 @@ class menu
 					Menu, % self.name, Rename, % this.name, % value
 					self.item.ins([this.name, true], 2)
 				} else {
-					if !IsObject(value)
-						Menu, % self.name, Add
-						    , % value
-						    , MenuItemEventHandlerLabel
+					if IsObject(value) {
+						if (value.idx == 1)
+							Menu, % self.name, Standard
+					} else Menu, % self.name, Add
+					           , % value
+					           , % (value <> "") ? "MenuItemEventHandlerLabel" : ""
 				}
 			}
 
@@ -468,14 +483,16 @@ class menu
 
 			__(key, params*) {
 				if ObjHasKey(this._, key)
-					return this._[key, params*]			
+					return this._[key, params*]
+				if (key ~= "i)^(f(Type|State)|(w|)ID|hSubmenu)$")
+					return this.__MII[(key = "id") ? "wID" : key]
 			}
 
 			name(p*) {
 				static NULL := ""
 				
 				if (this.type = "Separator")
-					return
+					return NULL
 				len := DllCall("GetMenuString"
 				             , "Ptr", this.menu.handle
 				             , "UInt", this.pos-1
@@ -489,7 +506,7 @@ class menu
 				             , "Str", name
 				             , "Int", len+1
 				             , "UInt", 0x400)
-				return (len ? name : "")
+				return (len ? name : NULL)
 			}
 
 			menu(p*) {
@@ -505,14 +522,11 @@ class menu
 			}
 
 			type(p*) {
-				id := this.id , std := IsObject(this._.name)
-				return {1: std ? "Standard" : "Normal"
-				     ,  0: std ? "Standard" : "Separator"
-				     , -1: "Submenu"}[id <= 0 ? id : 1]
-			}
-
-			id(p*) {
-				return DllCall("GetMenuItemID", "Ptr", this.menu.hwnd, "UInt", this.pos-1)
+				wID := this.id , fType := this.fType , std := IsObject(this._.name)
+				id := wID ? ((fType<>2048) ? (this.hSubmenu ? -1 : 1) : fType) : fType
+				return std
+				       ? "Standard"
+				       : {1:"Normal", 2048:"Separator", -1:"Submenu", 0:"NULL"}[id]
 			}
 
 			check(p*) {
@@ -523,17 +537,23 @@ class menu
 				return (this.fState & 0x3) ? false : true
 			}
 			; PRIVATE
-			fState(p*) {	
+			__MII(p*) {
+				static fMask := {fType:[256,8], fState:[1,12], wID:[2,16], hSubmenu:[4,20]}
+				
 				VarSetCapacity(MII, 48, 0) ; sizeof(MENUITEMINFO)
 				Numput(48, MII, 0) ; set cbSize field to sizeof(MENUITEMINFO)
-				NumPut(1, MII, 4) ; set fMask to MIIM_STATE=1
+				NumPut(fMask[p.1,1], MII, 4) ; set fMask
 				DllCall("GetMenuItemInfo"
 				      , "Ptr", this.menu.handle
 				      , "UInt", this.pos-1
 				      , "UInt", 1
 				      , "UInt", &MII)
-				
-				return NumGet(MII, 12) ; get fState field out of struct
+
+				return NumGet(MII, fMask[p.1,2]) ; get field out of struct
+			}
+
+			__STD(p*) {
+				return (id := this.id) ? (id>=65300 && id<=65307) : IsObject(this._.name)
 			}
 		
 		}
