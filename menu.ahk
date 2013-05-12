@@ -74,7 +74,8 @@ class menu
 			;    ,   1: "Standard"
 			;    ,   2: ({0: "Standard", 1: "NoStandard"}[std])}[value]
 			
-		    value := {"$": (value ? {0: true, 1: false}[std] : false)
+		    ;value := {"$": (value ? {0: true, 1: false}[std] : false)
+		    value := {"$": {0:false, 1:true, 2:{0:true, 1:false}[std]}[value]
 		          ,   "@": (value ? this.count+1 : 0)}
 		    
 		    p := (s := value["$"]) ? this.count : this.standard+10
@@ -368,8 +369,8 @@ class menu
 					continue
 				}
 				Menu, % self.name, Add
-				    , % (z := v._.HasKey("name")) ? v._.name : ""
-				    , % z ? "MenuItemEventHandlerLabel" : ""
+				    , % v._.name
+				    , % (v._.name <> "") ? "MenuItemEventHandlerLabel" : ""
 			    for x, y in v._ {
 			    	if (x ~= "i)^(name|menu)$")
 			    		continue
@@ -435,14 +436,20 @@ class menu
 			}
 
 			if (key = "target") {
-				sm := ((sm1 := SubStr(value, 1, 1) = ":") || (IsObject(value) && (value.__Class = "menu")))
+				sm := ((sm1:=(value~="^:")) || value.IsMenu)
 				   ?  (sm1 ? value : ":" value.name)
 				   :  false
 					
 				if sm
 					Menu, % self.name, Add, % this.name, % sm
-
-	    		value := (value == "" ? this.name : value)
+	    		
+	    		value := (value == "")
+	    		      ?  this.name
+	    		      :  (sm
+	    		         ? sm
+	    		         : (RegExMatch(value, "O)^(.*)(\(\)|:)$", m)
+	    		           ? ({"()":1,":":0}[m.2] ? Func(m.1) : m.Value)
+	    		           : value))
 			}
 			
 			if (key = "icon") {
@@ -509,6 +516,15 @@ class menu
 				return (len ? name : NULL)
 			}
 
+			target(p*) {
+				t := this._.target
+				return p.1
+				       ? t
+				       : (IsObject(t)
+				         ? t.Name
+				         : (RegExMatch(t, "O)^(.*):$", m) ? m.1 : t))
+			}
+
 			menu(p*) {
 				return MENU_obj(this._.menu)
 			}
@@ -559,12 +575,12 @@ class menu
 		}
 
 		onEvent() {
-			t := this.target
+			t := ((t:=this.target[1])~=":$" ? this.target : t)
 			lbl := IsLabel(t) , fn := IsFunc(t) , obj := IsObject(t)
-			if ((lbl && !fn) || (lbl && fn))
+			if (lbl && (!fn || (fn && !obj)))
 				SetTimer, % this.target, -1
-			else if ((fn && !lbl) || (obj && IsFunc(t.Name)))
-				return (this.target).()
+			else if (fn && (!lbl || (lbl && obj)))
+				return (this.target).(this)
 			return
 			MenuItemEventHandlerLabel:
 			MenuItemEventHandlerTimerLabel:
@@ -689,7 +705,7 @@ MENU_to(p*) {
 			for i, j in b._ {
 				if (i = "menu")
 					continue
-				mi[a].setAttribute(i, IsObject(j) ? (j.__Class = "menu" ? ":" j.name : j.name) : j)
+				mi[a].setAttribute(i, IsObject(j) ? j.Name "()" : j)
 			}
 			mn[k].appendChild(mi[a])
 		}
@@ -719,7 +735,7 @@ MENU_json(src) {
 	m := [] , mn := []
 	Loop, % (len := ($j := j[has]("name")) ? 1 : j.length) {
 		_m_ := ($j ? j : j[A_Index-1]) , mp := []
-		for q, r in ["name","color","standard"]
+		for q, r in ["name","color","standard","icon"]
 			if _m_[has](r)
 				mp[r] := _m_[r]
 		mn[mp.name] := _m_
