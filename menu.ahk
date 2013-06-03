@@ -1,7 +1,7 @@
 class menu
 {
 
-	static _init_ := MENU_init()
+	static _init_ := menu.__INIT__()
 	static destroy := Func("MENU_delete")
 
 	class _properties_
@@ -45,7 +45,7 @@ class menu
 		if (key = "name") {
 			if this._.HasKey(key)
 				throw Exception("The 'name' property is read-only.", -1)
-			if (this.handle[value] && value <> "Tray")
+			if (MENU_handle(value) && value <> "Tray")
 				throw Exception("Menu name already exists.", -1)
 			
 			this._.Insert(key, value)
@@ -57,6 +57,7 @@ class menu
 			} else for i, j in ["Standard", "NoStandard"]
 				Menu, % value, % j
 
+			init_handle := this.handle
 			return true
 		}
 		
@@ -101,6 +102,11 @@ class menu
 				    , % (s := sg[cv ? cv.2 : 0]) ? "Single" : ""
 			}
 			value := {value: v, single: s}
+		}
+
+		if (key = "gui") {
+			Gui, % (value ? value : this.gui) ":Menu"
+			   , % (value ? this.name : "")
 		}
 
 		if (key = "item") {
@@ -174,27 +180,9 @@ class menu
 		}
 
 		handle(p*) {
-			static mDummy := "MENU_dummy_" A_TickCount
-			static hDummy
-
-			if !hDummy {
-				Menu, % mDummy, Add
-				Menu, % mDummy, DeleteAll
-				Gui, New, +LastFound
-				Gui, Menu, % mDummy
-				hDummy := DllCall("GetMenu", "Ptr", WinExist())
-				Gui, Menu
-				Gui, Destroy
-				if !hDummy
-					return false
-			}
-			try Menu, % mDummy, Add, % ":" (mn := p.1 ? p.1 : this.name)
-			catch
-				return false
-			hMenu := DllCall("GetSubMenu", "Ptr", hDummy, "Int", 0)
-			DllCall("RemoveMenu", "Ptr", hDummy, "UInt", 0, "UInt", 0x400)
-			Menu, % mDummy, Delete, % ":" mn
-			return hMenu
+			if DllCall("IsMenu", "Ptr", this._.handle)
+				return this._.handle
+			return this._.handle := MENU_handle(this.name)
 		}
 
 		count(p*) {	
@@ -268,6 +256,10 @@ class menu
 				CoordMode, Menu, % coordmode
 		}	
 		Menu, % this.name, Show, % x, % y
+	}
+
+	attach(gui:=false) {
+		this.gui := gui
 	}
 
 	class _menuitems_
@@ -491,29 +483,16 @@ class menu
 			__(key, params*) {
 				if ObjHasKey(this._, key)
 					return this._[key, params*]
-				if (key ~= "i)^(f(Type|State)|(w|)ID|hSubmenu)$")
-					return this.__MII[(key = "id") ? "wID" : key]
+				if (key ~= "i)^(f(Type|State)|(w|)ID|hSubmenu|dwTypeData)$")
+					return MENU_mii(this.menu.handle, this.pos, (key = "id") ? "wID" : key)
 			}
 
 			name(p*) {
 				static NULL := ""
-				
+
 				if (this.type = "Separator")
 					return NULL
-				len := DllCall("GetMenuString"
-				             , "Ptr", this.menu.handle
-				             , "UInt", this.pos-1
-				             , "Str", NULL
-				             , "Int", 0
-				             , "UInt", 0x400)
-				VarSetCapacity(name, (len+1)*(A_IsUnicode ? 2 : 1))
-				len := DllCall("GetMenuString"
-				             , "Ptr", this.menu.handle
-				             , "UInt", this.pos-1
-				             , "Str", name
-				             , "Int", len+1
-				             , "UInt", 0x400)
-				return (len ? name : NULL)
+				return this.dwTypeData
 			}
 
 			target(p*) {
@@ -552,25 +531,6 @@ class menu
 			enable(p*) {
 				return (this.fState & 0x3) ? false : true
 			}
-			; PRIVATE
-			__MII(p*) {
-				static fMask := {fType:[256,8], fState:[1,12], wID:[2,16], hSubmenu:[4,20]}
-				
-				VarSetCapacity(MII, 48, 0) ; sizeof(MENUITEMINFO)
-				Numput(48, MII, 0) ; set cbSize field to sizeof(MENUITEMINFO)
-				NumPut(fMask[p.1,1], MII, 4) ; set fMask
-				DllCall("GetMenuItemInfo"
-				      , "Ptr", this.menu.handle
-				      , "UInt", this.pos-1
-				      , "UInt", 1
-				      , "UInt", &MII)
-
-				return NumGet(MII, fMask[p.1,2]) ; get field out of struct
-			}
-
-			__STD(p*) {
-				return (id := this.id) ? (id>=65300 && id<=65307) : IsObject(this._.name)
-			}
 		
 		}
 
@@ -592,7 +552,17 @@ class menu
 	
 	}
 
-	class _BASE_
+	__INIT__() {
+		static init
+		static $ := menu.Remove("_init_")
+
+		if init ; call once
+			return
+		menu.base := menu.__BASE__
+		init := true
+	}
+
+	class __BASE__
 	{
 
 		class __Get extends menu._properties_
@@ -626,14 +596,66 @@ MENU_obj(name, p*) {
 	if MENU_list(name, 2) {
 		m := MENU_list(name)
 		return p.1 ? (IsObject(mi:=m.item[p.1]) ? mi : false) : m
+	}
+}
+
+MENU_handle(name) {
+	static mDummy := "MENU_dummy_" A_TickCount
+	static hDummy
+
+	if !hDummy {
+		Menu, % mDummy, Add
+		Menu, % mDummy, DeleteAll
+		Gui, New, +LastFound
+		Gui, Menu, % mDummy
+		hDummy := DllCall("GetMenu", "Ptr", WinExist())
+		Gui, Menu
+		Gui, Destroy
+		if !hDummy
+			return false
+	}
+
+	if MENU_obj(name).gui {
+		Gui, New, +LastFound
+		try Gui, Menu, % name
+		catch {
+			Gui, Destroy
+			return false
+		}
+		hMenu := DllCall("GetMenu", "Ptr", WinExist())
+		Gui, Menu
+		Gui, Destroy
+	} else {
+		try Menu, % mDummy, Add, % ":" name
+		catch
+			return false
+		hMenu := DllCall("GetSubMenu", "Ptr", hDummy, "Int", 0)
+		DllCall("RemoveMenu", "Ptr", hDummy, "UInt", 0, "UInt", 0x400)
+		Menu, % mDummy, Delete, % ":" name
+	}
+
+	return DllCall("IsMenu", "Ptr", hMenu) ? hMenu : false
+}
+
+MENU_mii(hMenu, pos, field:="dwTypeData") {
+	static fMask := 4
+	static _ := {fType:[256,8], fState:[1,12], wID:[2,16], hSubmenu:[4,20], dwTypeData:[64,36]}
+
+	VarSetCapacity(MII, 48, 0)
+	NumPut(48, MII, 0)
+	NumPut(_[field,1], MII, fMask)
+	DllCall("GetMenuItemInfo", "Ptr", hMenu, "UInt", pos-1, "UInt", true, "UInt", &MII)
 	
-	} else if DllCall("IsMenu", "Ptr", name) {
-		for k, v in MENU_list()
-			mn := v
-		until (found := (mn.hwnd == name))
-		return found ? mn : false
-	
-	} else return false
+	if (field = "dwTypeData") {
+		len := NumGet(MII, 40, "Int")
+		VarSetCapacity(text, (len+1)*(A_IsUnicode ? 2 : 1), 0)
+		NumPut(len+1, MII, 40) , NumPut(&text, MII, _[field,2])
+		DllCall("GetMenuItemInfo", "Ptr", hMenu, "UInt", pos-1, "UInt", true, "UInt", &MII)
+		
+		return StrGet(NumGet(MII, _[field,2]))
+	}
+
+	return NumGet(MII, _[field,2])
 }
 
 MENU_from(src) {
@@ -755,27 +777,8 @@ MENU_json(src) {
 	return len > 1 ? m : m[mp.name]
 }
 ; PRIVATE FUNCTIONS
-MENU_init() {
-	static init
-	static $ := menu.Remove("_init_")
-
-	if init ; call once
-		return
-	menu.base := menu._BASE_
-	init := true
-}
-
 MENU_list(k:="", v:=1) {
 	static list := []
 
-	if (k == "")
-		return list
-	if IsObject(v)
-		list[k] := v
-	else {
-		if v
-			return {1: list[k], 2: list.HasKey(k)}[v]
-		else list.Remove(k)
-	}
-	return true
+	return (k == "") ? list : (IsObject(v) ? (list[k] := v) : (v ? {1: list[k], 2: list.HasKey(k)}[v] : list.Remove(k)))
 }
