@@ -75,7 +75,6 @@ class menu
 			;    ,   1: "Standard"
 			;    ,   2: ({0: "Standard", 1: "NoStandard"}[std])}[value]
 			
-		    ;value := {"$": (value ? {0: true, 1: false}[std] : false)
 		    value := {"$": {0:false, 1:true, 2:{0:true, 1:false}[std]}[value]
 		          ,   "@": (value ? this.count+1 : 0)}
 		    
