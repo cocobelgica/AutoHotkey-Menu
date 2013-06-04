@@ -625,6 +625,7 @@ MENU_handle(name) {
 		hMenu := DllCall("GetMenu", "Ptr", WinExist())
 		Gui, Menu
 		Gui, Destroy
+	
 	} else {
 		try Menu, % mDummy, Add, % ":" name
 		catch
