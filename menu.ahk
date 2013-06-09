@@ -1,8 +1,7 @@
 class menu
 {
 
-	static _init_ := menu.__INIT__()
-	static destroy := Func("MENU_delete")
+	static __ := menu.__INIT__()
 
 	class _properties_
 	{
@@ -49,7 +48,7 @@ class menu
 				throw Exception("Menu name already exists.", -1)
 			
 			this._.Insert(key, value)
-			this[value] := true
+			menu.__[value] := &this
 			this.item := new menu._menuitems_(this)
 			if (value = "Tray") {
 				Menu, % value, NoStandard
@@ -60,9 +59,6 @@ class menu
 			init_handle := this.handle
 			return true
 		}
-		
-		if (key == this.name)
-			return MENU_list([key, value ? this : false]*)
 
 		if (key = "default") {
 			Menu, % this.name, Default
@@ -71,9 +67,6 @@ class menu
 
 		if (key = "standard") {
 			std := this.standard ? 1 : 0
-			;cmd := {0: "NoStandard"
-			;    ,   1: "Standard"
-			;    ,   2: ({0: "Standard", 1: "NoStandard"}[std])}[value]
 			
 		    value := {"$": {0:false, 1:true, 2:{0:true, 1:false}[std]}[value]
 		          ,   "@": (value ? this.count+1 : 0)}
@@ -259,6 +252,12 @@ class menu
 
 	attach(gui:=false) {
 		this.gui := gui
+	}
+
+	destroy() {
+		this.delete()
+		Menu, % this.name, Delete
+		menu.__.Remove(this.name)
 	}
 
 	class _menuitems_
@@ -553,12 +552,12 @@ class menu
 
 	__INIT__() {
 		static init
-		static $ := menu.Remove("_init_")
 
 		if init ; call once
 			return
 		menu.base := menu.__BASE__
 		init := true
+		return []
 	}
 
 	class __BASE__
@@ -568,11 +567,14 @@ class menu
 		{
 
 			__(key, p*) {
-				if RegExMatch(key, "Oi)^(this(Menu|Item))$", m)
-					return MENU_obj({menu: [A_ThisMenu]
-					               , item: [A_ThisMenu, A_ThisMenuItem]}[m.2]*)
+				if RegExMatch(key, "Oi)^(this(Menu|Item))$", m) {
+					mn := MENU_obj(A_ThisMenu)
+					return {menu:1, item:0}[m.2]
+					       ? mn
+					       : (IsObject(mi:=mn.item[A_ThisMenuItem]) ? mi : 0)
+				}
 				
-				return MENU_obj(key, p*)
+				return MENU_obj(key)
 			}
 		
 		}
@@ -581,21 +583,8 @@ class menu
 
 }
 ; PUBLIC FUNCTIONS
-MENU_delete(ByRef this) {
-	if (!IsObject(this) || (this.base <> menu))
-		throw Exception("[Invalid Parameter] Not a menu object.", -1)
-
-	this[this.name] := false
-	this.item := ""
-	Menu, % this.name, Delete
-	return IsByRef(this) ? (true, this := "") : false
-}
-
-MENU_obj(name, p*) {
-	if MENU_list(name, 2) {
-		m := MENU_list(name)
-		return p.1 ? (IsObject(mi:=m.item[p.1]) ? mi : false) : m
-	}
+MENU_obj(name) {
+	return menu.__.HasKey(name) ? Object(menu.__[name]) : false
 }
 
 MENU_handle(name) {
@@ -775,10 +764,4 @@ MENU_json(src) {
 		}
 	}
 	return len > 1 ? m : m[mp.name]
-}
-; PRIVATE FUNCTIONS
-MENU_list(k:="", v:=1) {
-	static list := []
-
-	return (k == "") ? list : (IsObject(v) ? (list[k] := v) : (v ? {1: list[k], 2: list.HasKey(k)}[v] : list.Remove(k)))
 }
