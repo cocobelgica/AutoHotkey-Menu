@@ -648,17 +648,23 @@ MENU_mii(hMenu, pos, field:="dwTypeData") {
 }
 
 MENU_from(src) {
-	static MSXML := "MSXML2.DOMDocument" (A_OSVersion ~= "(7|8)" ? ".6.0" : "")
-	, xpr := ["*[translate(name(), 'MENU', 'menu')='menu']"
-	      ,   "*[translate(name(), 'ITEM', 'item')='item']"
-	      ,   "@*[translate(name(), 'NAME', 'name')='name']"
-	      ,   "i)^(name|target|icon|check|enable|default)$"]
+	/*
+	Do not initialize 'xpr' as class static initializer(s) will not be
+	able to access the variable's content when calling this function.
+	*/
+	static xpr
+
+	if !xpr
+		xpr := ["*[translate(name(), 'MENU', 'menu')='menu']"
+		    ,   "*[translate(name(), 'ITEM', 'item')='item']"
+		    ,   "@*[translate(name(), 'NAME', 'name')='name']"
+		    ,   "i)^(name|target|icon|check|enable|default)$"]
 	
 	if !IsObject(menu)
 		throw Exception("Cannot create menu(s) from XML source. "
 		      . "Super-global variable 'menu' is not an object.", -1)
 	
-	x := ComObjCreate(MSXML)
+	x := ComObjCreate("MSXML2.DOMDocument.6.0")
 	x.async := false
 
 	; Load XML source
@@ -702,9 +708,8 @@ MENU_from(src) {
 }
 
 MENU_to(p*) {
-	static MSXML := "MSXML2.DOMDocument" (A_OSVersion ~= "(7|8)" ? ".6.0" : "")
-
-	x := ComObjCreate(MSXML)
+	x := ComObjCreate("MSXML2.DOMDocument.6.0")
+	
 	mn := {base: {max: Func("ObjMaxIndex"), del: Func("ObjRemove")}} , mi := []
 	for k, v in p {
 		mn[k] := x.createElement("Menu")
