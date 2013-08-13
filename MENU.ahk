@@ -2,11 +2,13 @@ class MENU
 {
 
 	static __INIT__ := MENU.__INIT_CLASS__()
-	__CHECK_INIT__ := MENU.__INIT_CLASS__()
+	;__CHECK_INIT__ := MENU.__INIT_CLASS__()
 	
 	__New(arg) {
-		ObjInsert(this, "_", {item:{base:MENU.__ITEM__}}) ; proxy object
-		this.item.Insert("_", [])
+		if !IsObject(MENU.__) ; Fix this
+			MENU.__INIT_CLASS__()
+		
+		ObjInsert(this, "_", {item:new MENU.__ITEM__(this)}) ; proxy object
 		
 		if !((name := IsObject(arg) ? (arg.HasKey("name") ? arg.name : 0) : arg)<>"")
 			throw Exception(MENU.__ERROR["menu_name"], -1)
@@ -23,7 +25,8 @@ class MENU
 
 	__Delete() {
 		this.item := ""
-		OutputDebug, % "CLASS[" this.__Class "]: Deleted"
+		Menu, % this.name, Delete
+		OutputDebug, % "CLASS[" this.__Class "]: Deleted | name: " this.name
 	}
 
 	__Set(k, v, p*) {
@@ -60,8 +63,7 @@ class MENU
 
 			if v {
 				Loop, 10
-					std := {base:MENU.ITEM} , std.Insert("_", [])
-					, this.item._.Insert(std)
+					new MENU.STANDARD_ITEM(this)
 				
 				this.__node.appendChild(MENU.__xml.createElement("Standard"))
 				v := this.standard
@@ -89,6 +91,7 @@ class MENU
 		} else if (k = "item") {
 			if p.MinIndex()
 				return (this.item)[v] := p.1
+			return this._[k] := v
 		}
 
 		this.__node.setAttribute(k, v)
@@ -126,15 +129,29 @@ class MENU
 	}
 
 	add(item:="") {
-		mi := new MENU.ITEM(this, item)
-		this.item[this.count+1] := mi
+		return new MENU.ITEM(this, item)
+	}
+
+	ins(p1:=0, p2:=0) {
+		this.add((mi:=IsObject(p1)) ? p1 : "")
+		this.item[this.count].pos := mi ? p2 : p1
+	}
+
+	del(item:="") {
+		if !item
+			this.item := ""
+		else this.item[IsObject(item) ? item.pos : item] := ""
 	}
 
 	show(x:="", y:="", coordmode:="") {
-		if (coordmode && (x <> "" || y <> "")) {
-			if (coordmode ~= "i)^(Screen|Relative|Window|Client)$")
-				CoordMode, Menu, % coordmode
-		}	
+		static coord
+
+		if !coord
+			coord := {s:"Screen", r:"Relative", w:"Window", c:"Client"}
+		
+		if (coordmode ~= "i)^(S(creen)?|R(elative)?|W(indow)?|C(lient)?)$")
+		&& (x <> "" || y <> "")
+			CoordMode, Menu, % coord[SubStr(coordmode,1,1)]
 		
 		Menu, % this.name, Show, % x, % y
 	}
@@ -146,8 +163,8 @@ class MENU
 			return
 		init := true
 		
-		MENU.base := {__Get:MENU.__baseGet, __Set:MENU.__baseSet}
 		MENU.__ := []
+		MENU.base := {__Get:MENU.__baseGet, __Set:MENU.__baseSet}
 		
 		x := ComObjCreate("MSXML2.DOMDocument.6.0")
 		x.async := false , x.setProperty("SelectionLanguage", "XPath")
@@ -161,7 +178,8 @@ class MENU
 		MENU_ITEMLABEL:
 		MENU_ITEMLABELTIMER:
 		if(A_ThisLabel = "MENU_ITEMLABELTIMER")
-			MENU.thisItem.__onEvent()
+			Object(MENU.__[A_ThisMenu]).item[A_ThisMenuItemPos].__onEvent()
+			;MENU.thisItem.__onEvent()
 		else SetTimer, MENU_ITEMLABELTIMER, -1
 		return
 	}
@@ -169,9 +187,10 @@ class MENU
 	class ITEM
 	{
 
-		__New(self, item) {
-			this.Insert("_", {menu: self.name})
-
+		__New(oMenu, item:="") {
+			oMenu.item[oMenu.count+1] := this
+			this.Insert("_", {menu: oMenu.name})
+			
 			this.name := IsObject(item) ? item.name : ""
 			
 			item.action := item.Haskey("action") ? item.action : ""
@@ -184,22 +203,29 @@ class MENU
 		}
 
 		__Delete() {
-			OutputDebug, % "CLASS[" this.__Class "]: Deleted"
+			OutputDebug, % "CLASS[" this.__Class "]: Deleted | type: " this.type
+			
+			if (this.type = "Standard")
+				return
+			if (this.type = "Normal")
+				Menu, % this.menu.name, Delete, % this.name
+
+			this.menu.__node.removeChild(this.__node)
 		}
 
 		__Set(k, v, p*) {
-			self := this.menu
+			oMenu := this.menu
 			StringLower, k, k
 			
 			if (k = "name") {
 				if this_.HasKey(k) {
 					if (v = this.name)
 						return
-					Menu, % self.name, Rename, % this.name, % v
+					Menu, % oMenu.name, Rename, % this.name, % v
 				
 				} else {
-					Menu, % self.name, Add, % v, % (v<>"") ? "MENU_ITEMLABEL" : ""
-					self.__node.appendChild(n:=MENU.__xml.createElement("Item"))
+					Menu, % oMenu.name, Add, % v, % (v<>"") ? "MENU_ITEMLABEL" : ""
+					oMenu.__node.appendChild(n:=MENU.__xml.createElement("Item"))
 					n.setAttribute("ref", &this)
 				}
 			
@@ -209,38 +235,40 @@ class MENU
 				    :  false
 
 				if sub
-					Menu, % self.name, Add, % this.name, % (v:=sub)
+					Menu, % oMenu.name, Add, % this.name, % (v:=sub)
 				
 				if (IsObject(v) && IsFunc(v))
 					v := v.Name . "()"
+				else if (v == "")
+					v := this.name
 			
 			} else if (k = "icon") {
 				RegExMatch(v, "iO)^([^,]+)(?:,(\d+|)(?:,(\d+|)|$)|$)$", icon)
-				Menu, % self.name, Icon, % this.name, % icon.1, % icon.2, % icon.3
+				Menu, % oMenu.name, Icon, % this.name, % icon.1, % icon.2, % icon.3
 			
 			} else if (k ~= "i)^(check|enable)$") {
 				cmd := {check: {1: "Check", 0: "Uncheck", 2: "ToggleCheck"}
 			        ,   enable: {1: "Enable", 0: "Disable", 2: "ToggleEnable"}}[k, v]
 		        
-		        Menu, % self.name, % cmd, % this.name
+		        Menu, % oMenu.name, % cmd, % this.name
 			
 			} else if (k = "default") {
-				self.default := v ? this.name : false
+				oMenu.default := v ? this.name : false
 
 			} else if (k = "pos") {
-				if (v.type = "Standard")
+				if (this.type = "Standard")
 					return false
-				if !(v >= 1 && v <= self.count)
+				if !(v >= 1 && v <= oMenu.count)
 					return false
 				if (v == this.pos)
 					return false
-				if (std:=this.standard) {
+				if (std:=oMenu.standard) {
 					if (v > this.pos && v >= std && v < (std+9))
 					|| (v < this.pos && v > std && v <= (std+9))
 						return false
 				}
 				
-				return self.item.__(this, v)
+				return oMenu.item.__(this, v)
 			}
 			
 			this.__node.setAttribute(k, v)
@@ -275,14 +303,13 @@ class MENU
 			}
 
 			type() {
-				type := this._.HasKey("name")
+				type := (this.__Class <> "MENU.STANDARD_ITEM")
 				     ? ((this.name="")
 				        ? "Separator"
 				        : ((this.action~="^:")
 				          ? "Submenu"
 				          : "Normal"))
 				     : "Standard"
-
 				return type
 			}
 
@@ -304,16 +331,53 @@ class MENU
 	
 	}
 
-	class __ITEM__
+	class STANDARD_ITEM extends MENU.ITEM
 	{
-
-		__New() {
-			return false
+		
+		__New(oMenu) {
+			oMenu.item[oMenu.count+1] := this
+			this.Insert("_", {menu: oMenu.name})
 		}
 
 		__Set(k, v, p*) {
+			return false
+		}
+	}
+
+	class __ITEM__
+	{
+
+		__New(oMenu) {
+			this.Insert("_", [])
+		}
+
+		__Delete() {
+			Loop, % this._.MaxIndex()
+				this[1] := ""
+		}
+
+		__Set(k, v, p*) {
+
+			if this._.HasKey(k) {
+				oItem := this[k]
+				return v ? false
+				         : ((oItem.type<>"Standard")
+				           ? ((oItem.type="Separator")
+				             ? this.__(oItem)
+				             : this._.Remove(k))
+				           : oItem.menu.standard:=0)
 			
-			return this._[k] := v
+			} else {
+				; Initial __Set
+				if (k ~= "^\d+$")
+					return this._.Insert(k, v)
+				; k = MenuItemName
+				else if (oItem:=this[k])
+					return this[oItem.pos] := v
+				; Invalid key
+				else return false
+			}
+			
 		}
 
 		class __Get extends MENU.__PROPERTIES__
@@ -334,13 +398,15 @@ class MENU
 		__(item, pos:=false) {
 			oMenu := item.menu
 
-			if pos
+			if pos {
 				this._.Insert(pos, this._.Remove(item.pos))
 				, node := oMenu.__node.removeChild(item.__node)
 				, arg := (end:=(pos=oMenu.count))
 				      ? [node]
-				      : [node, oMenu.__node.selectSingleNode("Item[@ref='" &this[pos] "']")]
+				      : [node, oMenu.__node.selectSingleNode("Item[@ref='" &this[pos+1] "']")]
 				, (oMenu.__node)[end ? "appendChild" : "insertBefore"](arg*)
+
+			} else this._.Remove(item.pos)
 
 			Menu, % oMenu.name, DeleteAll
 			Menu, % oMenu.name, NoStandard
@@ -350,7 +416,7 @@ class MENU
 					continue
 				if (v.type = "Standard") {
 					if (k = oMenu.standard)
-						Menu, % self.name, Standard
+						Menu, % oMenu.name, Standard
 					continue
 				}
 				Menu, % oMenu.name, Add
@@ -368,7 +434,7 @@ class MENU
 	}
 
 	__baseSet(k, v, p*) {
-		OutputDebug, % k
+		;OutputDebug, % k
 	}
 
 	class __baseGet extends MENU.__PROPERTIES__
@@ -414,4 +480,60 @@ class MENU
 		}
 	}
 
+}
+
+MENU_from(src) {
+	/*
+	Do not initialize 'xpr' as class static initializer(s) will not be
+	able to access the variable's content when calling this function.
+	*/
+	static xpr
+	
+	;XPath[1.0] expression(s) that allow case-insensitive node selection
+	if !xpr
+		xpr := ["*[translate(name(), 'MENU', 'menu')='menu']"
+		    ,   "*[translate(name(), 'ITEM', 'item')='item' or "
+		    .   "translate(name(), 'STANDARD', 'standard')='standard']"
+		    ,   "@*[translate(name(), 'NAME', 'name')='name']"]
+	
+	x := ComObjCreate("MSXML2.DOMDocument.6.0")
+	x.setProperty("SelectionLanguage", "XPath") ;Redundant
+	x.async := false
+
+	;Load XML source
+	if (src ~= "s)^<.*>$")
+		x.loadXML(src)
+	else if ((f:=FileExist(src)) && !(f~="D"))
+		x.load(src)
+	else throw Exception("Invalid XML source.", -1)
+
+	m := [] , mn := []
+	
+	for mnode in x.selectNodes("//" xpr.1 "[" xpr.3 "]") {
+		mp := [] , len := A_Index
+		for att in mnode.attributes
+			mp[att.name] := att.value
+		
+		m[mp.name] := {node:mnode, menu:new MENU(mp)}
+	}
+
+	for k, v in m {
+		
+		for inode in v.node.selectNodes(xpr.2) {
+			
+			if (inode.nodeName = "Standard") {
+				v.menu.standard := true
+				continue
+			}
+			
+			mi := (att:=inode.attributes).length ? [] : ""
+			for ip in att
+				mi[ip.name] := ip.value
+			v.menu.add(mi)
+		}
+		
+		mn[name:=k] := v.Remove("menu")
+	}
+
+	return len>1 ? mn : mn.Remove(name)
 }
