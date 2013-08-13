@@ -59,17 +59,13 @@ class MENU
 			Menu, % this.name, Color, % c.1, % c.2
 
 		} else if (k = "standard") {
-			Menu, % this.name, % {0:"NoStandard", 1:"Standard"}[v]
-
-			if v {
-				Loop, 10
-					new MENU.STANDARD_ITEM(this)
-				
-				this.__node.appendChild(MENU.__xml.createElement("Standard"))
-				v := this.standard
 			
-			} else this.item._.Remove(this.standard, this.standard+9)
-				, this.__node.removeChild(this.__node.selectSingleNode("Standard"))
+			if !v
+				this.item._.Remove(this.standard, this.standard+9)
+			else Loop, 10
+				new MENU.STANDARD_ITEM(this)
+
+			v := this.standard
 		
 		} else if (k ~= "i)^(icon|tip|click|mainwindow)$") {
 			if (this.name <> "Tray")
@@ -205,9 +201,12 @@ class MENU
 		__Delete() {
 			OutputDebug, % "CLASS[" this.__Class "]: Deleted | type: " this.type
 			
-			if (this.type = "Standard")
-				return
-			if (this.type = "Normal")
+			if (this.type = "Standard") {
+				if (this.std_index<9)
+					return
+				Menu, % this.menu.name, NoStandard
+			
+			} else if (this.type = "Normal")
 				Menu, % this.menu.name, Delete, % this.name
 
 			this.menu.__node.removeChild(this.__node)
@@ -314,7 +313,7 @@ class MENU
 			}
 
 			__node(p*) {
-				return this.menu.__node.selectSingleNode("Item[@ref='" &this "']")
+				return this.menu.__node.selectSingleNode((this.type<>"Standard") ? "Item[@ref='" &this "']" : "Standard")
 			}
 		}
 
@@ -336,10 +335,20 @@ class MENU
 		
 		__New(oMenu) {
 			oMenu.item[oMenu.count+1] := this
-			this.Insert("_", {menu: oMenu.name})
+			this.Insert("_", {menu:oMenu.name})
+			
+			if !(this.std_index:=this.pos-oMenu.standard) {
+				Menu, % oMenu.name, Standard
+				oMenu.__node.appendChild(MENU.__xml.createElement("Standard"))
+			}
+
+			this.std_index := this.pos-oMenu.standard
 		}
 
 		__Set(k, v, p*) {
+			if (k = "std_index")
+				return this._[k] := v
+			
 			return false
 		}
 	}
