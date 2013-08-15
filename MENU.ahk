@@ -2,13 +2,15 @@ class MENU
 {
 
 	static __INIT__ := MENU.__INIT_CLASS__()
-	;__CHECK_INIT__ := MENU.__INIT_CLASS__()
+	__CHECK_INIT__ := MENU.__INIT_CLASS__()
 	
 	__New(arg) {
-		if !IsObject(MENU.__) ; Fix this
+		/*
+		if !IsObject(MENU.__)
 			MENU.__INIT_CLASS__()
-		
-		ObjInsert(this, "_", {item:new MENU.__ITEM__(this)}) ; proxy object
+		*/
+		this.Insert("_", [])
+		this._.Insert("item", new MENU.__ITEM__(this))
 		
 		if !((name := IsObject(arg) ? (arg.HasKey("name") ? arg.name : 0) : arg)<>"")
 			throw Exception(MENU.__ERROR["menu_name"], -1)
@@ -59,11 +61,10 @@ class MENU
 			Menu, % this.name, Color, % c.1, % c.2
 
 		} else if (k = "standard") {
-			
 			if !v
 				this.item._.Remove(this.standard, this.standard+9)
 			else Loop, 10
-				new MENU.STANDARD_ITEM(this)
+				new MENU.ITEM_STANDARD(this)
 
 			v := this.standard
 		
@@ -129,8 +130,9 @@ class MENU
 	}
 
 	ins(p1:=0, p2:=0) {
-		this.add((mi:=IsObject(p1)) ? p1 : "")
+		oItem := this.add((mi:=IsObject(p1)) ? p1 : "")
 		this.item[this.count].pos := mi ? p2 : p1
+		return oItem
 	}
 
 	del(item:="") {
@@ -174,8 +176,8 @@ class MENU
 		MENU_ITEMLABEL:
 		MENU_ITEMLABELTIMER:
 		if(A_ThisLabel = "MENU_ITEMLABELTIMER")
-			Object(MENU.__[A_ThisMenu]).item[A_ThisMenuItemPos].__onEvent()
-			;MENU.thisItem.__onEvent()
+			;Object(MENU.__[A_ThisMenu]).item[A_ThisMenuItemPos].__onEvent()
+			MENU.thisItem.__onEvent()
 		else SetTimer, MENU_ITEMLABELTIMER, -1
 		return
 	}
@@ -184,18 +186,17 @@ class MENU
 	{
 
 		__New(oMenu, item:="") {
-			oMenu.item[oMenu.count+1] := this
+			oMenu.item.add(this)
 			this.Insert("_", {menu: oMenu.name})
 			
-			this.name := IsObject(item) ? item.name : ""
-			
+			name := IsObject(item) ? (item.HasKey("name") ? item.name : "") : item
+			this.name := name
 			item.action := item.Haskey("action") ? item.action : ""
 			for a, b in item {
 				if !(a ~= "i)^(action|icon|enable|check|default)$")
 					continue
 				this[a] := b
 			}
-
 		}
 
 		__Delete() {
@@ -215,12 +216,26 @@ class MENU
 		__Set(k, v, p*) {
 			oMenu := this.menu
 			StringLower, k, k
+
+			if (this._.HasKey("name") && (this.type="Separator") && (k<>"pos"))
+				return
 			
 			if (k = "name") {
-				if this_.HasKey(k) {
+				if this._.HasKey(k) {
 					if (v = this.name)
 						return
 					Menu, % oMenu.name, Rename, % this.name, % v
+					if (v = "") {
+						p := "action,icon,check,enable,default"
+						Loop, Parse, p, `,
+						{
+							if this._.HasKey(alf:=A_LoopField)
+								this._.Remove(alf)
+							if this.__node.selectSingleNode("@" alf)
+								this.__node.removeAttribute(alf)
+						}
+
+					}
 				
 				} else {
 					Menu, % oMenu.name, Add, % v, % (v<>"") ? "MENU_ITEMLABEL" : ""
@@ -232,10 +247,11 @@ class MENU
 				sub := ((str:=(v~="^:")) || (v.__Class="MENU"))
 				    ?  (str ? v : ":" v.name)
 				    :  false
-
-				if sub
-					Menu, % oMenu.name, Add, % this.name, % (v:=sub)
 				
+				Menu, % oMenu.name, Add
+				    , % this.name
+				    , % sub ? (v:=sub) : "MENU_ITEMLABEL"
+
 				if (IsObject(v) && IsFunc(v))
 					v := v.Name . "()"
 				else if (v == "")
@@ -302,7 +318,7 @@ class MENU
 			}
 
 			type() {
-				type := (this.__Class <> "MENU.STANDARD_ITEM")
+				type := (this.__Class<>"MENU.ITEM_STANDARD")
 				     ? ((this.name="")
 				        ? "Separator"
 				        : ((this.action~="^:")
@@ -311,7 +327,7 @@ class MENU
 				     : "Standard"
 				return type
 			}
-
+			
 			__node(p*) {
 				return this.menu.__node.selectSingleNode((this.type<>"Standard") ? "Item[@ref='" &this "']" : "Standard")
 			}
@@ -330,19 +346,17 @@ class MENU
 	
 	}
 
-	class STANDARD_ITEM extends MENU.ITEM
+	class ITEM_STANDARD extends MENU.ITEM
 	{
 		
 		__New(oMenu) {
-			oMenu.item[oMenu.count+1] := this
+			oMenu.item.add(this)
 			this.Insert("_", {menu:oMenu.name})
 			
 			if !(this.std_index:=this.pos-oMenu.standard) {
 				Menu, % oMenu.name, Standard
 				oMenu.__node.appendChild(MENU.__xml.createElement("Standard"))
 			}
-
-			this.std_index := this.pos-oMenu.standard
 		}
 
 		__Set(k, v, p*) {
@@ -404,24 +418,35 @@ class MENU
 			}
 		}
 
-		__(item, pos:=false) {
-			oMenu := item.menu
+		add(oItem) {
+			return this._.Insert(oItem)
+		}
+
+		__(oItem, pos:=false) {
+			oMenu := oItem.menu
 
 			if pos {
-				this._.Insert(pos, this._.Remove(item.pos))
-				, node := oMenu.__node.removeChild(item.__node)
+				this._.Insert(pos, this._.Remove(oItem.pos))
+				, node := oMenu.__node.removeChild(oItem.__node)
 				, arg := (end:=(pos=oMenu.count))
 				      ? [node]
 				      : [node, oMenu.__node.selectSingleNode("Item[@ref='" &this[pos+1] "']")]
 				, (oMenu.__node)[end ? "appendChild" : "insertBefore"](arg*)
 
-			} else this._.Remove(item.pos)
+			} else this._.Remove(oItem.pos)
+
+			;Temporarily remove attached submenu(s)
+			for k, v in this._ {
+				if (v.type <> "Submenu")
+					continue
+				Menu, % oMenu.name, Add, % v.name, MENU_ITEMLABEL
+			}
 
 			Menu, % oMenu.name, DeleteAll
 			Menu, % oMenu.name, NoStandard
 
 			for k, v in this._ {
-				if (!pos && v = item)
+				if (!pos && v = oItem)
 					continue
 				if (v.type = "Standard") {
 					if (k = oMenu.standard)
