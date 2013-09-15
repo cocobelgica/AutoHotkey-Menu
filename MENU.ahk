@@ -26,8 +26,12 @@ class MENU
 	}
 
 	__Delete() {
-		this.item := ""
-		Menu, % this.name, Delete
+		try {
+			Menu, % this.name, Color ;Check if menu exists. Fix this.
+			this.item := ""
+			Menu, % this.name, Delete
+		}
+		
 		OutputDebug, % "CLASS[" this.__Class "]: Deleted | name: " this.name
 	}
 
