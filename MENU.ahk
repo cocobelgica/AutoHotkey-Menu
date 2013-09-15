@@ -537,8 +537,8 @@ MENU_from(src) {
 		    ,   "@*[translate(name(), 'NAME', 'name')='name']"
 		    ,   "@*[translate(name(), 'GLOBAL_ACTION', 'global_action')='global_action']"]
 	
-	x := ComObjCreate("MSXML2.DOMDocument.6.0")
-	x.setProperty("SelectionLanguage", "XPath") ;Redundant
+	x := ComObjCreate("MSXML2.DOMDocument" . (A_OsVersion~="^WIN_(VISTA|7|8)$" ? ".6.0" : ""))
+	x.setProperty("SelectionLanguage", "XPath")
 	x.async := false
 
 	;Load XML source
@@ -554,10 +554,14 @@ MENU_from(src) {
 
 	m := [] , mn := []
 	
-	for mnode in x.selectNodes("//" xpr.1 "[" xpr.3 "]") {
+	;for mnode in x.selectNodes("//" xpr.1 "[" xpr.3 "]") {
+	Loop, % (_:=x.selectNodes("//" xpr.1 "[" xpr.3 "]")).length {
+		mnode := _.item(A_Index-1)
 		mp := [] , len := A_Index
-		for att in mnode.attributes
-			mp[att.name] := att.value
+		;for att in mnode.attributes
+		Loop, % (_att:=mnode.attributes).length
+			att := _att.item(A_Index-1)
+			, mp[att.name] := att.value
 
 		if (global_action && !mp.HasKey("default_action"))
 			mp.default_action := global_action
@@ -567,16 +571,19 @@ MENU_from(src) {
 
 	for k, v in m {
 		
-		for inode in v.node.selectNodes(xpr.2) {
-			
+		;for inode in v.node.selectNodes(xpr.2) {
+		Loop, % (_:=v.node.selectNodes(xpr.2)).length {
+			inode := _.item(A_Index-1)
 			if (inode.nodeName = "Standard") {
 				v.menu.standard := true
 				continue
 			}
 			
 			mi := (att:=inode.attributes).length ? [] : ""
-			for ip in att
-				mi[ip.name] := ip.value
+			;for ip in att
+			Loop, % att.length
+				ip := att.item(A_Index-1)
+				, mi[ip.name] := ip.value
 			
 			v.menu.add(mi)
 		}
