@@ -61,7 +61,7 @@ class MENU
 			    , % value ? (IsObject(value) ? value.name : value) : ""
 		
 		} else if (k = "color") {
-			RegExMatch(v, "iO)^([^,\s]+)(?:[,\s]+(single|)|$)$", c)
+			RegExMatch(v, "iO)^([^,\s]+)?(?:[,\s]+(single)?)?$", c)
 			Menu, % this.name, Color, % c.1, % c.2
 
 		} else if (k = "standard") {
@@ -77,8 +77,8 @@ class MENU
 				throw Exception(MENU.__ERROR["menu_not_tray"], -1)
 
 			if (k = "icon") {
-				RegExMatch(v, "iO)^([^,]+|)(?:,(\d+|)(?:,(0|1|)|$)|$)$", icon)
-				if (icon.1 ~= "^(0|1|)$")
+				RegExMatch(v, "iO)^([^,]+)?(?:,(-?\d+)?(?:,(0|1)?)?)?$", icon)
+				if (icon.1 ~= "^(0|1)?$")
 					Menu, Tray, % icon.1 ? "Icon" : "NoIcon"
 				else Menu, Tray, Icon, % icon.1, % icon.2, % icon.3
 			
@@ -168,7 +168,7 @@ class MENU
 		MENU.__ := []
 		MENU.base := {__Get:MENU.__baseGet, __Set:MENU.__baseSet}
 		
-		x := ComObjCreate("MSXML2.DOMDocument.6.0")
+		x := ComObjCreate("MSXML2.DOMDocument" . (A_OsVersion~="^WIN_(VISTA|7|8)$" ? ".6.0" : ""))
 		x.async := false , x.setProperty("SelectionLanguage", "XPath")
 		x.loadXML("<CLASS_MENU/>")
 		MENU.__xml := x
@@ -264,7 +264,7 @@ class MENU
 					v := this.name
 			
 			} else if (k = "icon") {
-				RegExMatch(v, "iO)^([^,]+)(?:,(\d+|)(?:,(\d+|)|$)|$)$", icon)
+				RegExMatch(v, "iO)^([^,]+)?(?:,(-?\d+)?(?:,(\d+)?)?)?$", icon)
 				Menu, % oMenu.name, Icon, % this.name, % icon.1, % icon.2, % icon.3
 			
 			} else if (k ~= "i)^(check|enable)$") {
