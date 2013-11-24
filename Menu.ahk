@@ -7,11 +7,9 @@ class Menu extends Menu.__base__
 		this._.Insert("__items__", [])
 
 		this.name := IsObject(kwargs) ? kwargs.Remove("name") : kwargs
-		for k, v in kwargs {
-			if k not in % "standard,color,icon,tip,click,mainwindow,default_action"
-				continue
-			this[k] := v
-		}
+		for k, v in kwargs
+			if k in % "standard,color,icon,tip,click,mainwindow,default_action"
+				this[k] := v
 	}
 
 	__Delete() {
@@ -20,7 +18,7 @@ class Menu extends Menu.__base__
 			this.del()
 			Menu, % this.name, Delete
 		}
-		
+		Menu.__.Remove(this.name)
 		OutputDebug, % "Menu[CLASS]: " . this.name . " released."
 	}
 
@@ -43,8 +41,8 @@ class Menu extends Menu.__base__
 			Menu, % this.name, Color
 			    , % obj ? v.value : SubStr(v, 1, InStr(v, ",")-1)
 			    , % obj ? v.single : SubStr(v, InStr(v, ",")+1)
-	    	if obj
-	    		v := v.value . "," . v.single 
+			if obj
+				v := v.value . "," . v.single 
 
 		} else if (k = "standard") {
 			if !v
@@ -73,14 +71,14 @@ class Menu extends Menu.__base__
 				Menu, Tray, % (v ? "" : "No") . "MainWindow"
 			
 			} else Menu, Tray, % k, % v
-		
-		} else if (k = "__items__") {
+		}
+
+		else if (k = "__items__") {
 			if this._.HasKey(k)
 				return
 		
-		} else if this.item(k) {
+		} else if this.item(k)
 			return this.del(this.item(k))
-		}
 
 		return this._[k] := v
 	}
@@ -131,12 +129,11 @@ class Menu extends Menu.__base__
 			if !IsObject(item)
 				item := this.item(item)
 			if (item.type == "separator")
-				this.set_item_pos(item)
+				this.set_itempos(item)
 			else if (item.type == "standard")
 				this.standard := false
 			else this.__items__.Remove(item.pos)
 			item := ""
-		
 		} else {
 			this._.__items__.Remove(1, this.len())
 			Menu, % this.name, DeleteAll ; cleanup, remove 'separators'
@@ -179,7 +176,7 @@ class Menu extends Menu.__base__
 		this._.icon := filename . "," . icon_no . "," . freeze
 	}
 
-	set_item_pos(item, pos:=false) {
+	set_itempos(item, pos:=false) {
 		items := this.__items__
 		if pos
 			items.Insert(pos, items.Remove(item.pos))
@@ -224,11 +221,9 @@ class Menu extends Menu.__base__
 			
 			if !kwargs.HasKey("action")
 				kwargs.action := (da:=mn.default_action) ? da : ""
-			for a, b in kwargs {
-				if a not in % "action,icon,enable,check,default"
-					continue
-				this[a] := b
-			}
+			for a, b in kwargs
+				if a in % "action,icon,enable,check,default"
+					this[a] := b
 		}
 
 		__Delete() {
@@ -292,7 +287,7 @@ class Menu extends Menu.__base__
 					|| (v < this.pos && v > std && v <= (std+9))
 						return
 				}
-				return mn.set_item_pos(this, v)
+				return mn.set_itempos(this, v)
 			}
 
 			return this._[k] := v
@@ -344,13 +339,13 @@ class Menu extends Menu.__base__
 		}
 
 		on_event() {
-			axn := this.action
-			lbl := IsLabel(axn) , fn := IsFunc(axn) , obj := IsObject(axn)
+			cmd := this.action
+			lbl := IsLabel(cmd), fn := IsFunc(cmd), obj := IsObject(cmd)
 			
 			if (lbl && (!fn || (fn && !obj)))
-				SetTimer, % axn, -1
+				SetTimer, % cmd, -1
 			else if (fn && (!lbl || (lbl && obj)))
-				return (axn).(this)
+				return (cmd).(this)
 			return
 		}
 	}
@@ -377,7 +372,7 @@ class Menu extends Menu.__base__
 
 	_NewEnum() {
 		return {base: {Next:Menu.enum_item_next}
-		      , enum:this.__items__._NewEnum()}
+		      , enum: this.__items__._NewEnum()}
 	}
 
 	enum_item_next(ByRef k, ByRef v:="") {
@@ -393,6 +388,79 @@ class Menu extends Menu.__base__
 		else SetTimer, MENU_ITEMLABELTIMER, -1
 		return
 	}
+
+	fromstring(src) {
+		/*
+		Do not initialize 'xpr' as class static initializer(s) will not be
+		able to access the variable's content when calling this function.
+		*/
+		static xpr
+		
+		if (this != Menu) ;Object must be the 'class' object, restrict
+			return
+		;XPath[1.0] expression(s) that allow case-insensitive node selection
+		if !xpr
+			xpr := ["*[translate(name(), 'MENU', 'menu')='menu']"
+			    ,   "*[translate(name(), 'ITEM', 'item')='item' or "
+			    .   "translate(name(), 'STANDARD', 'standard')='standard']"
+			    ,   "@*[translate(name(), 'NAME', 'name')='name']"
+			    ,   "@*[translate(name(), 'GLOBAL_ACTION', 'global_action')='global_action']"]
+		
+		x := ComObjCreate("MSXML2.DOMDocument" . (A_OsVersion~="^WIN_(VISTA|7|8)$" ? ".6.0" : ""))
+		x.setProperty("SelectionLanguage", "XPath")
+		x.async := false
+
+		;Load XML source
+		if (SubStr(src, 1, 1) == "<") && (SubStr(src, 0) == ">")
+			x.loadXML(src)
+		else if ((f:=FileExist(src)) && !InStr(f, "D"))
+			x.load(src)
+		else throw Exception("Invalid XML source.", -1)
+
+		global_action := (ga:=x.documentElement.selectSingleNode(xpr.4))
+		              ? ga.value
+		              : false
+
+		m := [] , mn := []
+		
+		;for mnode in x.selectNodes("//" xpr.1 "[" xpr.3 "]") {
+		Loop, % (_:=x.selectNodes("//" xpr.1 "[" xpr.3 "]")).length {
+			mnode := _.item(A_Index-1)
+			mp := [] , len := A_Index
+			;for att in mnode.attributes
+			Loop, % (_att:=mnode.attributes).length
+				att := _att.item(A_Index-1)
+				, mp[att.name] := att.value
+
+			if (global_action && !mp.HasKey("default_action"))
+				mp.default_action := global_action
+			
+			m[mp.name] := {node: mnode, menu: new Menu(mp)}
+		}
+
+		for k, v in m {
+			
+			;for inode in v.node.selectNodes(xpr.2) {
+			Loop, % (_:=v.node.selectNodes(xpr.2)).length {
+				inode := _.item(A_Index-1)
+				if (inode.nodeName = "Standard") {
+					v.menu.standard := true
+					continue
+				}
+				
+				mi := (att:=inode.attributes).length ? [] : ""
+				;for ip in att
+				Loop, % att.length
+					ip := att.item(A_Index-1)
+					, mi[ip.name] := ip.value
+				
+				v.menu.add(mi)
+			}
+			
+			mn[name:=k] := v.Remove("menu")
+		}
+		return len>1 ? mn : mn.Remove(name)
+	}
 	
 	class __base__
 	{
@@ -401,15 +469,9 @@ class Menu extends Menu.__base__
 			if !ObjHasKey(this, "__")
 				ObjInsert(this, "__", [])
 			
-			return this.__[k] := v
-		}
-
-		class __Get extends Menu.__property__
-		{
-
-			__(k, p*) {
-
-			}
+			return IsObject(Object(v))
+			       ? this.__[k] := v
+			       : false
 		}
 
 		this_menu() {
@@ -435,77 +497,7 @@ class Menu extends Menu.__base__
 }
 
 Menu(kwargs) {
+	if (SubStr(kwargs, 1, 1) == "<") && (SubStr(kwargs, 0) == ">")
+		return Menu.fromstring(kwargs)
 	return new Menu(kwargs)
-}
-
-MENU_from(src) {
-	/*
-	Do not initialize 'xpr' as class static initializer(s) will not be
-	able to access the variable's content when calling this function.
-	*/
-	static xpr
-	
-	;XPath[1.0] expression(s) that allow case-insensitive node selection
-	if !xpr
-		xpr := ["*[translate(name(), 'MENU', 'menu')='menu']"
-		    ,   "*[translate(name(), 'ITEM', 'item')='item' or "
-		    .   "translate(name(), 'STANDARD', 'standard')='standard']"
-		    ,   "@*[translate(name(), 'NAME', 'name')='name']"
-		    ,   "@*[translate(name(), 'GLOBAL_ACTION', 'global_action')='global_action']"]
-	
-	x := ComObjCreate("MSXML2.DOMDocument" . (A_OsVersion~="^WIN_(VISTA|7|8)$" ? ".6.0" : ""))
-	x.setProperty("SelectionLanguage", "XPath")
-	x.async := false
-
-	;Load XML source
-	if (src ~= "s)^<.*>$")
-		x.loadXML(src)
-	else if ((f:=FileExist(src)) && !(f~="D"))
-		x.load(src)
-	else throw Exception("Invalid XML source.", -1)
-
-	global_action := (ga:=x.documentElement.selectSingleNode(xpr.4))
-	              ? ga.value
-	              : false
-
-	m := [] , mn := []
-	
-	;for mnode in x.selectNodes("//" xpr.1 "[" xpr.3 "]") {
-	Loop, % (_:=x.selectNodes("//" xpr.1 "[" xpr.3 "]")).length {
-		mnode := _.item(A_Index-1)
-		mp := [] , len := A_Index
-		;for att in mnode.attributes
-		Loop, % (_att:=mnode.attributes).length
-			att := _att.item(A_Index-1)
-			, mp[att.name] := att.value
-
-		if (global_action && !mp.HasKey("default_action"))
-			mp.default_action := global_action
-		
-		m[mp.name] := {node:mnode, menu:new MENU(mp)}
-	}
-
-	for k, v in m {
-		
-		;for inode in v.node.selectNodes(xpr.2) {
-		Loop, % (_:=v.node.selectNodes(xpr.2)).length {
-			inode := _.item(A_Index-1)
-			if (inode.nodeName = "Standard") {
-				v.menu.standard := true
-				continue
-			}
-			
-			mi := (att:=inode.attributes).length ? [] : ""
-			;for ip in att
-			Loop, % att.length
-				ip := att.item(A_Index-1)
-				, mi[ip.name] := ip.value
-			
-			v.menu.add(mi)
-		}
-		
-		mn[name:=k] := v.Remove("menu")
-	}
-
-	return len>1 ? mn : mn.Remove(name)
 }
