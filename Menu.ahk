@@ -2,6 +2,8 @@
 class Menu extends Menu.__base__
 {
 	
+	static __ := [] ;Instances
+
 	__New(kwargs) {
 		ObjInsert(this, "_", [])
 		this._.Insert("__items__", [])
@@ -27,11 +29,12 @@ class Menu extends Menu.__base__
 			if this._.HasKey("name")
 				return
 			Menu[v] := &this
+			this._.Insert("name",  v) ;avoid crash
 			if (v = "Tray")
 				this.standard := 1
 			else Loop, 2
 				Menu, % v, % (A_Index == 1 ? "Standard" : "NoStandard")
-		
+
 		} else if (k = "default") {
 			Menu, % this.name, Default
 			    , % v ? (IsObject(v) ? v.name : v) : ""
